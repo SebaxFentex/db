@@ -1,9 +1,12 @@
 [project]
 name = "db"
 version = "0.1.1"
-description = "Utilidades personales para ejecutar SQL en Oracle y SQL Server"
+description = "Utilidades para crear engines de SQLAlchemy y ejecutar SQL en Oracle y SQL Server"
 readme = "README.md"
-requires-python = ">=3.13"
+authors = [
+    { name = "Sebastián Fuentes", email = "sebastianfuentesab@gmail.com" }
+]
+requires-python = ">=3.14"
 dependencies = [
     "oracledb==3.4.1",
     "pymssql==2.3.10",
@@ -16,8 +19,5 @@ dev = [
 ]
 
 [build-system]
-requires = ["hatchling>=1.24.0"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["db"]
+requires = ["uv_build>=0.13.0,<1.0"]
+build-backend = "uv_build"
