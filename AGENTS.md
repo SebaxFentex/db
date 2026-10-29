@@ -11,8 +11,8 @@ transaccion. Se consume en modo editable desde los `pyproject.toml` de los
 proyectos de `D:\Tigo\Proyectos`; no se opera con el Programador de tareas y no
 pide credenciales a ningun humano.
 
-Stack: Python 3.14, `uv`, SQLAlchemy 2.0, `oracledb` (thin por defecto),
-`pymssql`.
+Stack: Python 3.14, `uv`, SQLAlchemy 2.1, `oracledb` 26 (thin por defecto),
+`pymssql` 2.4.
 
 ```text
 src/db/
