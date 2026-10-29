@@ -99,8 +99,8 @@ def _consultar(engine: Engine, sql: str, motor: str) -> None:
 
 
 def main() -> None:
-    archivo_log = configurar_log()
-    log.info("Test de conexion e2e. Log: %s", archivo_log)
+    configurar_log()
+    log.info("Test de conexion e2e")
 
     motores = []
     if os.environ.get("ORACLE_USUARIO"):

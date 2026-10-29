@@ -1,82 +1,69 @@
-"""Configuracion de logging para los entrypoints de la libreria.
+"""Configuracion de log para los entrypoints (tests, ejecutables).
 
-La libreria solo emite: cada modulo usa ``logging.getLogger(__name__)`` y el
-paquete agrega un ``NullHandler``. El que configura de verdad es el entrypoint
-(los tests de este repo). Si el proyecto consumidor no configura logging, los
-mensajes de la libreria no se imprimen y no se crea ningun archivo: eso es
-correcto.
+La libreria solo emite logs (logging.getLogger(__name__)); este modulo
+solo actua cuando alguien lo llama. Nunca se ejecuta al importar.
 """
-
-from __future__ import annotations
 
 import logging
 import os
 from datetime import datetime
 from pathlib import Path
 
-CARPETA_LOGS = Path(__file__).resolve().parents[2] / "logs"
-NIVEL_POR_DEFECTO = "INFO"
-FORMATO = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
+PREFIJO_LOG_PREDETERMINADO = "db-"
+NIVEL_LOG_PREDETERMINADO = "INFO"
+MAX_LOGS_PREDETERMINADO = 30
+
+
+def carpeta_logs() -> Path:
+    """Carpeta logs/ en la raiz del proyecto (solo desarrollo: tests)."""
+    return Path(__file__).resolve().parents[2] / "logs"
+
+
+def purgar_logs(
+    carpeta: Path,
+    conservar: int = MAX_LOGS_PREDETERMINADO,
+    prefijo: str = PREFIJO_LOG_PREDETERMINADO,
+) -> None:
+    """Borra los .log mas viejos dejando los `conservar` recientes (por nombre)."""
+    archivos = sorted(carpeta.glob(f"{prefijo}*.log"))
+    for viejo in archivos[: max(0, len(archivos) - conservar)]:
+        viejo.unlink(missing_ok=True)
 
 
 def configurar_log(
     nivel: str | None = None,
-    prefijo: str = "db-",
-    conservar: int = 30,
-) -> Path:
-    """Configura archivo + consola en el logger raiz y devuelve el archivo creado.
+    prefijo: str = PREFIJO_LOG_PREDETERMINADO,
+    conservar: int = MAX_LOGS_PREDETERMINADO,
+) -> logging.Logger:
+    """Configura archivo + consola para el logger "db". Idempotente.
 
-    Args:
-        nivel: DEBUG, INFO, WARNING o ERROR. Si no se envia, se lee de la
-            variable de entorno ``DB_NIVEL_LOG`` y, si tampoco esta, INFO.
-        prefijo: prefijo de los archivos de log.
-        conservar: cuantos archivos de log se mantienen en ``logs/``.
-
-    Returns:
-        Ruta del archivo de log de esta corrida.
+    Nivel: parametro > env DB_NIVEL_LOG > NIVEL_LOG_PREDETERMINADO.
+    Valor invalido cae a NIVEL_LOG_PREDETERMINADO. Prefijo y retencion llegan
+    por parametro (defaults "db-" y 30).
+    El NullHandler que la libreria agrega en db/__init__.py no cuenta
+    como configuracion: se ignora a proposito para poder configurarlo aqui.
     """
-    nivel_efectivo = (nivel or os.getenv("DB_NIVEL_LOG") or NIVEL_POR_DEFECTO).upper()
-    valor_numerico = getattr(logging, nivel_efectivo, None)
-    if not isinstance(valor_numerico, int):
-        raise ValueError(
-            f"Nivel de log invalido: {nivel_efectivo!r}. Use DEBUG, INFO, WARNING o ERROR."
-        )
+    resuelto = (nivel or os.environ.get("DB_NIVEL_LOG", NIVEL_LOG_PREDETERMINADO)).upper()
+    if resuelto not in logging.getLevelNamesMapping():
+        resuelto = NIVEL_LOG_PREDETERMINADO
 
-    CARPETA_LOGS.mkdir(parents=True, exist_ok=True)
-    purgar_logs(prefijo=prefijo, conservar=conservar)
-    archivo = CARPETA_LOGS / f"{prefijo}{datetime.now():%Y%m%d-%H%M%S-%f}.log"
+    logger = logging.getLogger("db")
+    if any(not isinstance(h, logging.NullHandler) for h in logger.handlers):
+        return logger
 
-    formato = logging.Formatter(FORMATO)
-    raiz = logging.getLogger()
-    raiz.setLevel(valor_numerico)
-    for manejador in list(raiz.handlers):
-        raiz.removeHandler(manejador)
+    carpeta = carpeta_logs()
+    carpeta.mkdir(parents=True, exist_ok=True)
+    archivo_log = carpeta / f"{prefijo}{datetime.now():%Y%m%d-%H%M%S}.log"
 
-    manejador_archivo = logging.FileHandler(archivo, encoding="utf-8")
-    manejador_archivo.setFormatter(formato)
-    raiz.addHandler(manejador_archivo)
-
+    manejador_archivo = logging.FileHandler(archivo_log, encoding="utf-8")
     manejador_consola = logging.StreamHandler()
+    formato = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s")
+    manejador_archivo.setFormatter(formato)
     manejador_consola.setFormatter(formato)
-    raiz.addHandler(manejador_consola)
+    logger.addHandler(manejador_archivo)
+    logger.addHandler(manejador_consola)
+    logger.setLevel(resuelto)
 
-    return archivo
-
-
-def purgar_logs(prefijo: str = "db-", conservar: int = 30) -> list[Path]:
-    """Borra los logs mas antiguos y deja los ``conservar`` mas recientes."""
-    if conservar <= 0:
-        raise ValueError("La cantidad de logs a conservar debe ser mayor que cero")
-    if not CARPETA_LOGS.exists():
-        return []
-
-    archivos = sorted(
-        CARPETA_LOGS.glob(f"{prefijo}*.log"),
-        key=lambda ruta: ruta.stat().st_mtime,
-        reverse=True,
-    )
-    borrados = []
-    for archivo in archivos[conservar:]:
-        archivo.unlink(missing_ok=True)
-        borrados.append(archivo)
-    return borrados
+    purgar_logs(carpeta, conservar=conservar, prefijo=prefijo)
+    logger.info("Log en: %s (nivel %s)", archivo_log, resuelto)
+    return logger

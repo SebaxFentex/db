@@ -103,8 +103,8 @@ def _probar_cliente_oracle() -> None:
 
 
 def main() -> None:
-    archivo_log = configurar_log()
-    log.info("Test de construccion de engines. Log: %s", archivo_log)
+    configurar_log()
+    log.info("Test de construccion de engines")
 
     _probar_oracle()
     _probar_sqlserver()

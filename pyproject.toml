@@ -1,6 +1,6 @@
 [project]
 name = "db"
-version = "0.2.0"
+version = "0.2.1"
 description = "Utilidades para crear engines de SQLAlchemy y ejecutar SQL en Oracle y SQL Server"
 readme = "README.md"
 authors = [
@@ -8,14 +8,14 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "oracledb==3.4.1",
-    "pymssql==2.3.10",
-    "sqlalchemy==2.0.45",
+    "oracledb==26.1.0",
+    "pymssql==2.4.6",
+    "sqlalchemy==2.1.6",
 ]
 
 [dependency-groups]
 dev = [
-    "ipykernel==7.1.0",
+    "ipykernel==7.4.0",
 ]
 
 [build-system]

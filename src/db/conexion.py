@@ -12,7 +12,7 @@ import logging
 
 import oracledb
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine, URL
+from sqlalchemy.engine import URL, Engine
 
 from ._excepciones import ExcepcionConexion
 

@@ -167,8 +167,8 @@ def _probar_sin_print_y_con_log(engine) -> None:
 
 
 def main() -> None:
-    archivo_log = configurar_log()
-    log.info("Test de ejecutar_sql. Log: %s", archivo_log)
+    configurar_log()
+    log.info("Test de ejecutar_sql")
 
     engine = _crear_engine()
     _probar_parametros_ligados(engine)

@@ -65,7 +65,9 @@ logs/                    logs de desarrollo (ignorado por git)
    de cinco updates dejaba dos aplicados si el tercero fallaba.
 4. **La libreria emite, el entrypoint configura.** `logging.getLogger(__name__)`
    en cada modulo y `NullHandler` en el paquete; `configurar_log()` solo se llama
-   desde `tests/*`. Prohibido `basicConfig()` y `StreamHandler` en modulos.
+   desde `tests/*`. Prohibido `basicConfig()` y prohibido que un modulo que emite
+   agregue manejadores: el unico que agrega es `_log.configurar_log()`, y lo hace
+   sobre el logger "db", nunca sobre el raiz del consumidor.
 5. **Sin `print()`.** El unico destino de las trazas es `log`; un proceso
    desatendido con `print` no deja rastro. El encabezado `--` de cada sentencia
    se registra en INFO (rastro auditable) y el detalle en DEBUG.
@@ -88,9 +90,11 @@ logs/                    logs de desarrollo (ignorado por git)
 
 ## 4. Logging, codigos de salida y `.env`
 
-- `configurar_log(nivel=None, prefijo="db-", conservar=30)` escribe archivo y
-  consola en `logs/` (utf-8), purga los antiguos y acepta el nivel por
-  `DB_NIVEL_LOG` (default INFO).
+- `configurar_log(nivel=None, prefijo="db-", conservar=30)` configura el logger
+  "db" (no el raiz) con archivo y consola en `logs/` (utf-8), purga los antiguos
+  y es idempotente: la segunda llamada no agrega manejadores. Nivel por
+  parametro > `DB_NIVEL_LOG` > INFO; un valor invalido cae a INFO. Devuelve el
+  `Logger` configurado.
 - Codigos: `0` correcto · `1` fallo generico · `2` conexion · `3` SQL. El
   consumidor hace `sys.exit(exc.codigo_salida)`.
 - `.env` local (ignorado por git) solo lo usa `tests/test_conexion.py`. Se
@@ -140,3 +144,10 @@ logs/                    logs de desarrollo (ignorado por git)
   proyectos que la consumen deben migrar: `python_portaciones`,
   `python_tabla_calendario`, `python_simplificacion_planes` y
   `python_reportes_interbd`.
+- **v0.2.1 (2026-10-28)**: `_log.py` se alinea con el de `sharepoint`
+  (`carpeta_logs()`, constantes `PREFIJO_LOG_PREDETERMINADO`,
+  `NIVEL_LOG_PREDETERMINADO` y `MAX_LOGS_PREDETERMINADO`, configuracion del
+  logger "db" en vez del raiz, idempotente, nivel por parametro > `DB_NIVEL_LOG`
+  > INFO, purga por nombre y devuelve el `Logger`). Dependencias al dia:
+  `oracledb` 3.4.1 -> 26.1.0, `pymssql` 2.3.10 -> 2.4.6, `sqlalchemy` 2.0.45 ->
+  2.1.6, `ipykernel` 7.1.0 -> 7.4.0. Sin cambios de API.
