@@ -1,18 +1,31 @@
-from .general import SEPARADOR, get_separador, set_separador, run_query
-from .oracle import create_oracle_engine_from_env
-from .sql_server import (
-    create_sqlserver_engine_from_env,
-    create_sqlserver_netv_engine_from_env,
-    create_sqlserver_amev_engine_from_env,
+"""Utilidades para crear engines de SQLAlchemy y ejecutar SQL en Oracle y SQL Server.
+
+La libreria emite logs y el entrypoint los configura: aqui solo se agrega un
+``NullHandler`` para no ensuciar la salida de quien importa.
+
+No lee variables de entorno ni archivos ``.env``: todo entra por parametro.
+"""
+
+import logging
+
+from ._excepciones import ExcepcionConexion, ExcepcionDb, ExcepcionEjecucionSql
+from .conexion import (
+    crear_engine_oracle,
+    crear_engine_sqlserver,
+    inicializar_cliente_oracle,
 )
+from .ejecucion import SEPARADOR_CONSULTAS, ResultadoSql, ejecutar_sql
+
+logging.getLogger(__name__).addHandler(logging.NullHandler())
 
 __all__ = [
-    "SEPARADOR",
-    "get_separador",
-    "set_separador",
-    "run_query",
-    "create_oracle_engine_from_env",
-    "create_sqlserver_engine_from_env",
-    "create_sqlserver_netv_engine_from_env",
-    "create_sqlserver_amev_engine_from_env",
+    "SEPARADOR_CONSULTAS",
+    "ExcepcionConexion",
+    "ExcepcionDb",
+    "ExcepcionEjecucionSql",
+    "ResultadoSql",
+    "crear_engine_oracle",
+    "crear_engine_sqlserver",
+    "ejecutar_sql",
+    "inicializar_cliente_oracle",
 ]

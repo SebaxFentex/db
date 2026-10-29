@@ -1,0 +1,155 @@
+"""Construccion de engines de SQLAlchemy a partir de parametros explicitos.
+
+La libreria no lee variables de entorno ni archivos ``.env``: el proyecto
+consumidor decide de donde salen las credenciales y las pasa como parametros.
+Construir un engine no abre la conexion; el error de conexion aparece en el
+primer uso (``ejecutar_sql`` lo traduce a ``ExcepcionConexion``).
+"""
+
+from __future__ import annotations
+
+import logging
+
+import oracledb
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine, URL
+
+from ._excepciones import ExcepcionConexion
+
+log = logging.getLogger(__name__)
+
+_RUTA_CLIENTE_ORACLE: str | None = None
+
+
+def crear_engine_oracle(
+    usuario: str,
+    clave: str,
+    host: str,
+    servicio: str,
+    puerto: int = 1521,
+    query: dict[str, str] | None = None,
+) -> Engine:
+    """Crea un engine de Oracle.
+
+    Args:
+        usuario: usuario de la base.
+        clave: clave del usuario.
+        host: nombre o IP del servidor.
+        servicio: service name al que se conecta.
+        puerto: puerto del listener (por defecto 1521).
+        query: opciones extra para la URL, por ejemplo
+            ``{"ssl_server_dn_match": "false"}``.
+
+    Returns:
+        Engine de SQLAlchemy configurado con verificacion de conexion previa.
+
+    Raises:
+        ValueError: si falta un parametro obligatorio o el puerto no es valido.
+    """
+    usuario = _exigir(usuario, "usuario")
+    clave = _exigir(clave, "clave")
+    host = _exigir(host, "host")
+    servicio = _exigir(servicio, "servicio")
+    if not isinstance(puerto, int) or puerto <= 0 or puerto > 65535:
+        raise ValueError(f"El puerto de Oracle no es valido: {puerto!r}")
+
+    opciones = {"service_name": servicio}
+    if query:
+        opciones.update({str(k): str(v) for k, v in query.items()})
+
+    url = URL.create(
+        drivername="oracle+oracledb",
+        username=usuario,
+        password=clave,
+        host=host,
+        port=puerto,
+        query=opciones,
+    )
+    log.debug("Engine Oracle construido para %s:%s/%s", host, puerto, servicio)
+    return create_engine(url, pool_pre_ping=True, pool_recycle=1800)
+
+
+def crear_engine_sqlserver(
+    usuario: str,
+    clave: str,
+    host: str,
+    base_datos: str,
+    puerto: int | None = None,
+    query: dict[str, str] | None = None,
+) -> Engine:
+    """Crea un engine de SQL Server con el driver ``pymssql``.
+
+    Args:
+        usuario: usuario de la base.
+        clave: clave del usuario.
+        host: nombre o IP del servidor.
+        base_datos: base a la que se conecta.
+        puerto: puerto del servidor; ``None`` usa el default del driver.
+        query: opciones extra para la URL. Las bases antiguas que solo hablan
+            TDS 7.0 se conectan pasando ``{"tds_version": "7.0"}``; el valor lo
+            decide el proyecto consumidor, no la libreria.
+
+    Returns:
+        Engine de SQLAlchemy configurado con verificacion de conexion previa.
+
+    Raises:
+        ValueError: si falta un parametro obligatorio o el puerto no es valido.
+    """
+    usuario = _exigir(usuario, "usuario")
+    clave = _exigir(clave, "clave")
+    host = _exigir(host, "host")
+    base_datos = _exigir(base_datos, "base_datos")
+    if puerto is not None and (not isinstance(puerto, int) or puerto <= 0 or puerto > 65535):
+        raise ValueError(f"El puerto de SQL Server no es valido: {puerto!r}")
+
+    url = URL.create(
+        drivername="mssql+pymssql",
+        username=usuario,
+        password=clave,
+        host=host,
+        port=puerto,
+        database=base_datos,
+        query={str(k): str(v) for k, v in (query or {}).items()},
+    )
+    log.debug("Engine SQL Server construido para %s/%s", host, base_datos)
+    return create_engine(url, pool_pre_ping=True, pool_recycle=1800)
+
+
+def inicializar_cliente_oracle(ruta_cliente: str) -> None:
+    """Inicializa Oracle Client (modo thick) una sola vez por proceso.
+
+    ``oracledb`` trabaja en modo thin por defecto y no necesita esta llamada.
+    Solo se usa cuando la conexion depende de un Oracle Client instalado en el
+    equipo (TNS, NLS o conexiones que el modo thin no cubre). Es idempotente por
+    ruta: llamarla de nuevo con la misma ruta no hace nada.
+
+    Args:
+        ruta_cliente: carpeta donde esta el Oracle Client de 64 bits.
+
+    Raises:
+        ExcepcionConexion: si la ruta no contiene un cliente utilizable.
+    """
+    global _RUTA_CLIENTE_ORACLE
+
+    ruta = _exigir(ruta_cliente, "ruta_cliente")
+    if _RUTA_CLIENTE_ORACLE == ruta:
+        log.debug("Oracle Client ya inicializado en %s", ruta)
+        return
+
+    try:
+        oracledb.init_oracle_client(lib_dir=ruta)
+    except oracledb.Error as exc:
+        raise ExcepcionConexion(
+            f"No se pudo inicializar Oracle Client en '{ruta}': {exc}"
+        ) from exc
+
+    _RUTA_CLIENTE_ORACLE = ruta
+    log.info("Oracle Client inicializado en %s", ruta)
+
+
+def _exigir(valor: str, nombre: str) -> str:
+    """Devuelve el valor sin espacios sobrantes o lanza ``ValueError``."""
+    texto = valor.strip() if isinstance(valor, str) else ""
+    if not texto:
+        raise ValueError(f"El parametro '{nombre}' es obligatorio y no puede estar vacio")
+    return texto
