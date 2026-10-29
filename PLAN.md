@@ -1,5 +1,13 @@
 # PLAN — Alinear la librería `db` a la normativa de librerías internas
 
+> **Estado al 2026-10-28: F1 a F6 ejecutadas y publicadas.** La versión `v0.2.0`
+> está tagueada y publicada en `https://github.com/SebaxFentex/db`. Queda
+> pendiente, fuera de esta versión, migrar los proyectos consumidores
+> (`python_portaciones`, `python_tabla_calendario`,
+> `python_simplificacion_planes`, `python_reportes_interbd`): la ruta editable
+> vieja y las llamadas a `run_query` / `*_from_env` siguen rotas en esos
+> proyectos hasta que se migren.
+
 Auditoría: 2026-10-28 · Objeto: `D:\Tigo\Proyectos\1. PROPIOS\1.5 - Librerias\db`
 Norma que manda: `TIGO_PYTHON_LIBRERIAS.md` (secciones 1 a 12) + `TIGO_GENERAL.md`.
 Referencia de casa: `sharepoint` v1.2.1 (única librería ya alineada).
@@ -48,7 +56,7 @@ la configuración.
 | `ejecutables/` (build, abrir_vscode, tests/) | NO | no existe `ejecutables/`; cero `.bat` en la librería |
 | `logs/` (solo si el entrypoint escribe ahí) | NO | no hay logging ni carpeta `logs/` |
 | `.env.example` versionado | NO | no existe; tampoco `.env` |
-| `.gitignore` en la raíz | NO | solo existe `dist/.gitignore` con un `*` (parche para no versionar artefactos, sin repo git) |
+| `.gitignore` en la raíz | NO | no existía en la raíz (el `dist/.gitignore` lo genera `uv build` y no cubre `.venv/`, `.env` ni `logs/`) |
 | `.python-version` | SÍ (desalineado) | contiene `3.13`, la casa usa `3.14` |
 | `README.md` | SÍ (incompleto) | 116 líneas, cubre 1 de 7 secciones obligatorias (ver 2.7) |
 | `AGENTS.md` | NO | no existe |
