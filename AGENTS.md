@@ -95,6 +95,12 @@ logs/                    logs de desarrollo (ignorado por git)
    `uv run`.
 10. **Nada especulativo.** Sin abstracciones de un solo uso ni parametros de
     "por si acaso". Lo muerto se borra: queda en git si se necesita.
+11. **La descripcion del docstring dice que hace la funcion, nada mas.** Los
+    primeros parrafos (antes de `Args`/`Raises`/`Notes`) describen la funcion
+    misma; lo que hace la dependencia (`oracledb` en thin por defecto, `pymssql`
+    y su version de TDS) va en `Notes` o en el README. `Args`, `Returns` y
+    `Raises` si pueden explicar el porque de un parametro, un error o un valor
+    devuelto.
 
 ## 4. Logging, codigos de salida y `.env`
 

@@ -116,19 +116,10 @@ def crear_engine_sqlserver(
 
 
 def inicializar_cliente_oracle(ruta_cliente: str) -> None:
-    """Inicializa Oracle Client (modo thick).
+    """Inicializa Oracle Client en modo thick.
 
-    ``oracledb`` trabaja en modo thin por defecto y no necesita esta llamada.
-    Solo se usa cuando la conexion depende de un Oracle Client instalado en el
-    equipo (TNS, NLS o conexiones que el modo thin no cubre).
-
-    La idempotencia la da ``oracledb``: ``init_oracle_client`` acepta llamadas
-    repetidas con los mismos argumentos y falla si los argumentos cambian, asi
-    que el paquete no guarda estado propio.
-
-    Debe llamarse **antes** de abrir cualquier conexion: si el proceso ya creo
-    una conexion en modo thin, ``oracledb`` rechaza el cambio de modo y sigue en
-    thin.
+    Debe llamarse antes de abrir cualquier conexion. Es idempotente: repetir con
+    la misma ruta no hace nada y con otra ruta falla.
 
     Args:
         ruta_cliente: carpeta donde esta el Oracle Client de 64 bits.
@@ -138,6 +129,11 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
         ValueError: si ``ruta_cliente`` llega vacia.
         ExcepcionConexion: si la ruta no contiene un cliente utilizable o si el
             proceso ya abrio una conexion en modo thin.
+
+    Notes:
+        El modo thin es el default y no requiere esta llamada; se usa cuando la
+        conexion depende de un Oracle Client instalado (TNS, NLS). La
+        idempotencia y el rechazo del cambio de modo los aplica ``oracledb``.
     """
     ruta = _verificar_parametro_obligatorio(ruta_cliente, "ruta_cliente")
 
