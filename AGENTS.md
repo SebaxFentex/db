@@ -80,7 +80,9 @@ logs/                    logs de desarrollo (ignorado por git)
 8. **Errores clasificados por donde ocurren.** Conexion (2) es lo que falla al
    abrir o al perder la conexion, incluido el `OSError`/`socket.gaierror` que
    `oracledb` thin lanza antes de que SQLAlchemy lo envuelva. SQL (3) es lo que
-   rechaza la base. Los datos malformados se dejan como `ValueError` nativo.
+   rechaza la base. La entrada malformada se deja nativa: `TypeError` si el
+   valor no es texto (`None`, un numero) y `ValueError` si es texto pero llega
+   vacio o solo con espacios. Nunca se envuelve en `ExcepcionDb`.
 9. **`.bat` de proceso en `ejecutables/` invocando `uv run`.** Un `.bat` por
    test en `ejecutables/tests/`, con `pause` para leer el resultado y
    propagacion del codigo de salida. `abrir_vscode.bat` es utilitario: no lleva

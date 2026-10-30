@@ -128,7 +128,7 @@ def _probar_entrada_invalida(engine) -> None:
     for descripcion, llamada in (
         ("sql vacio", lambda: ejecutar_sql("   ", engine)),
         ("separador vacio", lambda: ejecutar_sql("select 1", engine, separador=" ")),
-        ("engine invalido", lambda: ejecutar_sql("select 1", "no es un engine")),
+        ("engine invalido", lambda: ejecutar_sql("select 1", "no es un engine")),  # ty: ignore[invalid-argument-type]
     ):
         try:
             llamada()

@@ -44,7 +44,8 @@ def crear_engine_oracle(
         Engine de SQLAlchemy configurado con verificacion de conexion previa.
 
     Raises:
-        ValueError: si falta un parametro obligatorio o el puerto no es valido.
+        TypeError: si un parametro obligatorio no es texto.
+        ValueError: si un parametro obligatorio llega vacio o el puerto no es valido.
     """
     usuario = _verificar_parametro_obligatorio(usuario, "usuario")
     clave = _verificar_parametro_obligatorio(clave, "clave")
@@ -93,7 +94,8 @@ def crear_engine_sqlserver(
         Engine de SQLAlchemy configurado con verificacion de conexion previa.
 
     Raises:
-        ValueError: si falta un parametro obligatorio o el puerto no es valido.
+        TypeError: si un parametro obligatorio no es texto.
+        ValueError: si un parametro obligatorio llega vacio o el puerto no es valido.
     """
     usuario = _verificar_parametro_obligatorio(usuario, "usuario")
     clave = _verificar_parametro_obligatorio(clave, "clave")
@@ -127,6 +129,8 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
         ruta_cliente: carpeta donde esta el Oracle Client de 64 bits.
 
     Raises:
+        TypeError: si ``ruta_cliente`` no es texto.
+        ValueError: si ``ruta_cliente`` llega vacia.
         ExcepcionConexion: si la ruta no contiene un cliente utilizable.
     """
     global _RUTA_CLIENTE_ORACLE
@@ -147,15 +151,18 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
     log.info("Oracle Client inicializado en %s", ruta)
 
 
-def _verificar_parametro_obligatorio(valor: str, nombre: str) -> str:
-    """Devuelve el valor sin espacios sobrantes o lanza ``ValueError``.
+def _verificar_parametro_obligatorio(valor: object, nombre: str) -> str:
+    """Devuelve el valor sin espacios sobrantes, o corta con la excepcion nativa.
 
-    Distingue dos casos, que son dos diagnosticos distintos: el parametro no es
-    texto, o el parametro llego vacio (o solo con espacios). Ambos salen como
-    ``ValueError`` nativo, porque son datos de entrada malformados del llamador.
+    La entrada se anota ``object`` a proposito: la funcion existe para verificar
+    que lo recibido sea texto, asi que no puede dar por hecho que ya lo es.
+
+    Raises:
+        TypeError: si el valor no es texto (``None``, un numero, una lista).
+        ValueError: si el valor es texto pero quedo vacio o solo con espacios.
     """
     if not isinstance(valor, str):
-        raise ValueError(
+        raise TypeError(
             f"El parametro '{nombre}' debe ser texto, llego {type(valor).__name__}"
         )
 

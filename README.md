@@ -116,20 +116,21 @@ engine = crear_engine_sqlserver(
 ### `crear_engine_oracle(usuario, clave, host, servicio, puerto=1521, query=None) -> Engine`
 
 Construye el engine de Oracle. `query` agrega opciones a la URL.
-**Lanza** `ValueError` si falta un parametro o el puerto no es valido. Construir
-el engine **no** abre conexion.
+**Lanza** `TypeError` si un parametro no es texto y `ValueError` si llega vacio o
+el puerto no es valido. Construir el engine **no** abre conexion.
 
 ### `crear_engine_sqlserver(usuario, clave, host, base_datos, puerto=None, query=None) -> Engine`
 
 Construye el engine de SQL Server con `pymssql`. `puerto=None` usa el default del
 driver (1433). `query` es el lugar para `{"tds_version": "7.0"}` en bases
-antiguas. **Lanza** `ValueError` con las mismas reglas que Oracle.
+antiguas. **Lanza** `TypeError` o `ValueError` con las mismas reglas que Oracle.
 
 ### `inicializar_cliente_oracle(ruta_cliente) -> None`
 
 Inicializa Oracle Client (modo thick) una sola vez por proceso; es idempotente
-por ruta. No hace falta en modo thin, que es el default. **Lanza**
-`ExcepcionConexion` (codigo 2) si la ruta no contiene un cliente utilizable.
+por ruta. No hace falta en modo thin, que es el default. **Lanza** `TypeError` si
+la ruta no es texto, `ValueError` si llega vacia y `ExcepcionConexion` (codigo 2)
+si no contiene un cliente utilizable.
 
 ### `ejecutar_sql(sql, engine, parametros=None, separador=SEPARADOR_CONSULTAS) -> list[ResultadoSql]`
 
