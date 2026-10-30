@@ -46,10 +46,10 @@ def crear_engine_oracle(
     Raises:
         ValueError: si falta un parametro obligatorio o el puerto no es valido.
     """
-    usuario = _texto_obligatorio(usuario, "usuario")
-    clave = _texto_obligatorio(clave, "clave")
-    host = _texto_obligatorio(host, "host")
-    servicio = _texto_obligatorio(servicio, "servicio")
+    usuario = _verificar_parametro_obligatorio(usuario, "usuario")
+    clave = _verificar_parametro_obligatorio(clave, "clave")
+    host = _verificar_parametro_obligatorio(host, "host")
+    servicio = _verificar_parametro_obligatorio(servicio, "servicio")
     if not isinstance(puerto, int) or puerto <= 0 or puerto > 65535:
         raise ValueError(f"El puerto de Oracle no es valido: {puerto!r}")
 
@@ -95,10 +95,10 @@ def crear_engine_sqlserver(
     Raises:
         ValueError: si falta un parametro obligatorio o el puerto no es valido.
     """
-    usuario = _texto_obligatorio(usuario, "usuario")
-    clave = _texto_obligatorio(clave, "clave")
-    host = _texto_obligatorio(host, "host")
-    base_datos = _texto_obligatorio(base_datos, "base_datos")
+    usuario = _verificar_parametro_obligatorio(usuario, "usuario")
+    clave = _verificar_parametro_obligatorio(clave, "clave")
+    host = _verificar_parametro_obligatorio(host, "host")
+    base_datos = _verificar_parametro_obligatorio(base_datos, "base_datos")
     if puerto is not None and (not isinstance(puerto, int) or puerto <= 0 or puerto > 65535):
         raise ValueError(f"El puerto de SQL Server no es valido: {puerto!r}")
 
@@ -131,7 +131,7 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
     """
     global _RUTA_CLIENTE_ORACLE
 
-    ruta = _texto_obligatorio(ruta_cliente, "ruta_cliente")
+    ruta = _verificar_parametro_obligatorio(ruta_cliente, "ruta_cliente")
     if _RUTA_CLIENTE_ORACLE == ruta:
         log.debug("Oracle Client ya inicializado en %s", ruta)
         return
@@ -147,9 +147,19 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
     log.info("Oracle Client inicializado en %s", ruta)
 
 
-def _texto_obligatorio(valor: str, nombre: str) -> str:
-    """Devuelve el valor sin espacios sobrantes o lanza ``ValueError``."""
-    texto = valor.strip() if isinstance(valor, str) else ""
-    if not texto:
+def _verificar_parametro_obligatorio(valor: str, nombre: str) -> str:
+    """Devuelve el valor sin espacios sobrantes o lanza ``ValueError``.
+
+    Distingue dos casos, que son dos diagnosticos distintos: el parametro no es
+    texto, o el parametro llego vacio (o solo con espacios). Ambos salen como
+    ``ValueError`` nativo, porque son datos de entrada malformados del llamador.
+    """
+    if not isinstance(valor, str):
+        raise ValueError(
+            f"El parametro '{nombre}' debe ser texto, llego {type(valor).__name__}"
+        )
+
+    limpio = valor.strip()
+    if not limpio:
         raise ValueError(f"El parametro '{nombre}' es obligatorio y no puede estar vacio")
-    return texto
+    return limpio
