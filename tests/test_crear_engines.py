@@ -16,6 +16,8 @@ from db import (
     crear_engine_sqlserver,
     inicializar_cliente_oracle,
 )
+from sqlalchemy.pool import QueuePool
+
 from db._log import configurar_log
 
 log = logging.getLogger("db.tests")
@@ -33,7 +35,8 @@ def _probar_oracle() -> None:
     assert "servidor.local:1521" in url, f"puerto por defecto ausente: {url}"
     assert "service_name=SERVICIO" in url, f"service_name ausente: {url}"
     assert "clave_secreta" not in url, f"la clave quedo visible: {url}"
-    assert engine.pool.checkedout() == 0, "construir el engine abrio una conexion"  # ty: ignore[unresolved-attribute]
+    assert isinstance(engine.pool, QueuePool), f"pool inesperado: {type(engine.pool).__name__}"
+    assert engine.pool.checkedout() == 0, "construir el engine abrio una conexion"
     log.info("OK engine Oracle: %s", url)
 
     con_puerto = crear_engine_oracle(
@@ -57,7 +60,8 @@ def _probar_sqlserver() -> None:
     assert "servidor.local/BASE" in url, f"base ausente: {url}"
     assert "clave_secreta" not in url, f"la clave quedo visible: {url}"
     assert engine.url.query.get("tds_version") == "7.0", f"tds: {engine.url.query}"
-    assert engine.pool.checkedout() == 0, "construir el engine abrio una conexion"  # ty: ignore[unresolved-attribute]
+    assert isinstance(engine.pool, QueuePool), f"pool inesperado: {type(engine.pool).__name__}"
+    assert engine.pool.checkedout() == 0, "construir el engine abrio una conexion"
     log.info("OK engine SQL Server con tds_version por parametro: %s", url)
 
     sin_opciones = crear_engine_sqlserver(
@@ -83,6 +87,18 @@ def _probar_validaciones() -> None:
             continue
         raise AssertionError(f"{descripcion} deberia lanzar ValueError")
     log.info("OK validacion de parametros como ValueError nativo")
+
+    casos_tipo = (
+        ("usuario None", lambda: crear_engine_oracle(None, "c", "h", "s")),  # ty: ignore[invalid-argument-type]
+        ("base None", lambda: crear_engine_sqlserver("u", "c", "h", None)),  # ty: ignore[invalid-argument-type]
+    )
+    for descripcion, llamada in casos_tipo:
+        try:
+            llamada()
+        except TypeError:
+            continue
+        raise AssertionError(f"{descripcion} deberia lanzar TypeError")
+    log.info("OK parametros que no son texto como TypeError nativo")
 
 
 def _probar_cliente_oracle() -> None:

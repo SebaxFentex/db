@@ -160,3 +160,13 @@ logs/                    logs de desarrollo (ignorado por git)
   `_opcional(nombre)` a `_leer_variable_opcional(nombre)`: el mismo nombre
   cubria dos contratos distintos (validar un valor vs leer una variable de
   entorno). Sin cambios de API ni de comportamiento.
+- **v0.3.0 (2026-10-30)**: el contrato de errores separa tipo de contenido.
+  `_verificar_parametro_obligatorio` recibe `valor: object` (es un validador: no
+  puede dar por hecho que ya recibe texto) y lanza `TypeError` cuando el valor no
+  es texto (`None`, un numero) y `ValueError` cuando es texto pero llega vacio o
+  solo con espacios. Antes los dos casos salian como `ValueError`. Un consumidor
+  que atrapaba `ValueError` para el caso de la variable ausente
+  (`os.environ.get` devuelve `None`) debe atrapar tambien `TypeError`.
+  `tests/test_crear_engines.py` cubre los dos caminos; ademas el test estrecha
+  `engine.pool` a `QueuePool` antes de `checkedout()`, porque ese metodo no
+  existe en la clase base `Pool`.
