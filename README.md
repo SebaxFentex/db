@@ -62,7 +62,7 @@ uv lock && uv sync
 | Gestor | `uv` (cada proyecto con su propio `.venv` y `uv.lock`) |
 | Datos de conexion | Los define el proyecto en **su** `.env` (via su `env.py`) y los pasa como parametros |
 | Login manual | No aplica: la libreria no pide credenciales ni MFA |
-| Oracle Client | Solo si se necesita modo thick (`inicializar_cliente_oracle`) |
+| Oracle Client | Solo si se necesita modo thick (`inicializar_cliente_oracle`), antes de la primera conexion |
 | Driver SQL Server | `pymssql` viaja como dependencia de la libreria; no instalar aparte |
 
 No hay `.bat` de la libreria que el consumidor deba ejecutar.
@@ -127,10 +127,12 @@ antiguas. **Lanza** `TypeError` o `ValueError` con las mismas reglas que Oracle.
 
 ### `inicializar_cliente_oracle(ruta_cliente) -> None`
 
-Inicializa Oracle Client (modo thick) una sola vez por proceso; es idempotente
-por ruta. No hace falta en modo thin, que es el default. **Lanza** `TypeError` si
-la ruta no es texto, `ValueError` si llega vacia y `ExcepcionConexion` (codigo 2)
-si no contiene un cliente utilizable.
+Inicializa Oracle Client (modo thick). No hace falta en modo thin, que es el
+default. **Debe llamarse antes de abrir cualquier conexion**: si el proceso ya
+creo una conexion en modo thin, oracledb rechaza el cambio y queda en thin. Es
+idempotente: repetir con la misma ruta no hace nada y con otra ruta falla.
+**Lanza** `TypeError` si la ruta no es texto, `ValueError` si llega vacia y
+`ExcepcionConexion` (codigo 2) si no contiene un cliente utilizable.
 
 ### `ejecutar_sql(sql, engine, parametros=None, separador=SEPARADOR_CONSULTAS) -> list[ResultadoSql]`
 

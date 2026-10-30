@@ -47,8 +47,11 @@ logs/                    logs de desarrollo (ignorado por git)
   devuelve `list[ResultadoSql]`. Abre la conexion fuera de la transaccion para
   poder distinguir el error de conexion (2) del error de SQL (3).
 - `inicializar_cliente_oracle(ruta_cliente)` es el unico punto que toca estado
-  del proceso (modo thick), es idempotente por ruta y solo se llama si el
-  consumidor lo pide.
+  del proceso (modo thick) y solo se llama si el consumidor lo pide. La
+  idempotencia la da `oracledb`: repetir con los mismos argumentos no hace nada
+  y con argumentos distintos falla, asi que el paquete no guarda estado propio.
+  Debe invocarse **antes** de abrir cualquier conexion: si el proceso ya creo
+  una conexion en modo thin, `oracledb` rechaza el cambio y sigue en thin.
 - Orden de metodos y funciones: publicas primero, privadas (`_nombre`) despues.
 
 ## 3. Reglas inviolables
@@ -73,7 +76,10 @@ logs/                    logs de desarrollo (ignorado por git)
    se registra en INFO (rastro auditable) y el detalle en DEBUG.
 6. **Nada de objetos globales mutables.** El separador es un parametro con
    default; `set_separador()` y el `SEPARADOR` re-exportado se eliminaron porque
-   el `__init__` se quedaba con la copia hecha al importar y mentia.
+   el `__init__` se quedaba con la copia hecha al importar y mentia. El estado de
+   proceso del modo thick tampoco vive aca: lo administra `oracledb` (ver
+   `inicializar_cliente_oracle`), asi que el paquete no tiene ninguna variable
+   global.
 7. **Sin efectos al importar.** Prohibido crear engines a nivel de modulo y
    tragarte la excepcion con `except Exception: engine = None`: el consumidor
    descubria el problema mucho despues.

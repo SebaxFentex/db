@@ -18,8 +18,6 @@ from ._excepciones import ExcepcionConexion
 
 log = logging.getLogger(__name__)
 
-_RUTA_CLIENTE_ORACLE: str | None = None
-
 
 def crear_engine_oracle(
     usuario: str,
@@ -118,12 +116,19 @@ def crear_engine_sqlserver(
 
 
 def inicializar_cliente_oracle(ruta_cliente: str) -> None:
-    """Inicializa Oracle Client (modo thick) una sola vez por proceso.
+    """Inicializa Oracle Client (modo thick).
 
     ``oracledb`` trabaja en modo thin por defecto y no necesita esta llamada.
     Solo se usa cuando la conexion depende de un Oracle Client instalado en el
-    equipo (TNS, NLS o conexiones que el modo thin no cubre). Es idempotente por
-    ruta: llamarla de nuevo con la misma ruta no hace nada.
+    equipo (TNS, NLS o conexiones que el modo thin no cubre).
+
+    La idempotencia la da ``oracledb``: ``init_oracle_client`` acepta llamadas
+    repetidas con los mismos argumentos y falla si los argumentos cambian, asi
+    que el paquete no guarda estado propio.
+
+    Debe llamarse **antes** de abrir cualquier conexion: si el proceso ya creo
+    una conexion en modo thin, ``oracledb`` rechaza el cambio de modo y sigue en
+    thin.
 
     Args:
         ruta_cliente: carpeta donde esta el Oracle Client de 64 bits.
@@ -131,14 +136,10 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
     Raises:
         TypeError: si ``ruta_cliente`` no es texto.
         ValueError: si ``ruta_cliente`` llega vacia.
-        ExcepcionConexion: si la ruta no contiene un cliente utilizable.
+        ExcepcionConexion: si la ruta no contiene un cliente utilizable o si el
+            proceso ya abrio una conexion en modo thin.
     """
-    global _RUTA_CLIENTE_ORACLE
-
     ruta = _verificar_parametro_obligatorio(ruta_cliente, "ruta_cliente")
-    if _RUTA_CLIENTE_ORACLE == ruta:
-        log.debug("Oracle Client ya inicializado en %s", ruta)
-        return
 
     try:
         oracledb.init_oracle_client(lib_dir=ruta)
@@ -147,7 +148,6 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
             f"No se pudo inicializar Oracle Client en '{ruta}': {exc}"
         ) from exc
 
-    _RUTA_CLIENTE_ORACLE = ruta
     log.info("Oracle Client inicializado en %s", ruta)
 
 
