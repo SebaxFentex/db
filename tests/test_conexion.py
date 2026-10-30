@@ -61,7 +61,7 @@ def _probar_oracle() -> None:
         servicio=servicio,
         puerto=int(puerto) if puerto else 1521,
     )
-    _consultar(engine, "select 1 as uno from dual", "Oracle")
+    _probar_conexion(engine, "select 1 as uno from dual", "Oracle")
 
 
 def _probar_sqlserver() -> None:
@@ -80,22 +80,25 @@ def _probar_sqlserver() -> None:
         puerto=int(puerto) if puerto else None,
         query={"tds_version": tds} if tds else None,
     )
-    _consultar(engine, "select 1 as uno", "SQL Server")
+    _probar_conexion(engine, "select 1 as uno", "SQL Server")
 
 
-def _consultar(engine: Engine, sql: str, motor: str) -> None:
+def _probar_conexion(engine: Engine, sql: str, motor: str) -> None:
+    """Ejercita conexion y sentencia contra la base real.
+
+    No valida datos: ``ejecutar_sql`` no devuelve filas. Que la sentencia no
+    lance significa que el engine conecto y la base la acepto.
+    """
     try:
-        resultados = ejecutar_sql(sql, engine)
+        ejecutar_sql(sql, engine)
     except ExcepcionConexion as exc:
         log.error("Fallo la conexion a %s: %s", motor, exc)
         raise SystemExit(exc.codigo_salida) from exc
     except ExcepcionEjecucionSql as exc:
-        log.error("Fallo la consulta en %s: %s", motor, exc)
+        log.error("Fallo la sentencia en %s: %s", motor, exc)
         raise SystemExit(exc.codigo_salida) from exc
 
-    filas = resultados[0].filas
-    assert filas and filas[0][0] == 1, f"{motor} devolvio {filas}"
-    log.info("OK conexion y consulta en %s: %s", motor, filas)
+    log.info("OK conexion y sentencia aceptada en %s", motor)
 
 
 def main() -> None:

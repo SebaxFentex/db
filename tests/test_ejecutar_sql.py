@@ -1,7 +1,7 @@
 """Test local de ejecutar_sql contra sqlite en memoria.
 
 No necesita credenciales ni red: sqlite viene en la biblioteca estandar.
-Cubre separador, parametros ligados, atomicidad y traduccion de errores.
+Cubre retorno, parametros ligados, separador, atomicidad y traduccion de errores.
 
 Uso: uv run python tests/test_ejecutar_sql.py
 """
@@ -18,7 +18,6 @@ from db import (
     SEPARADOR_CONSULTAS,
     ExcepcionConexion,
     ExcepcionEjecucionSql,
-    ResultadoSql,
     ejecutar_sql,
 )
 from db._log import configurar_log
@@ -42,21 +41,32 @@ def _crear_engine():
     return engine
 
 
-def _filas(engine) -> list[tuple]:
-    return ejecutar_sql("select id, nombre, ruta, activo from clientes order by id", engine)[0].filas
+def _consultar(engine, sql: str) -> list[tuple]:
+    """Lee filas por conexion directa: ejecutar_sql no devuelve datos."""
+    with engine.connect() as conexion:
+        return [tuple(fila) for fila in conexion.execute(text(sql))]
 
 
-def _probar_parametros_ligados(engine) -> None:
-    resultados = ejecutar_sql(
+def _contar(engine) -> int:
+    return _consultar(engine, "select count(*) from clientes")[0][0]
+
+
+def _probar_retorno_y_parametros(engine) -> None:
+    retorno = ejecutar_sql(
         "insert into clientes (nombre, ruta, activo) values (:nombre, :ruta, :activo)",
         engine,
-        parametros={"nombre": "Ana", "ruta": "/tmp/ana.txt", "activo": True, "sobra": "se ignora"},
+        parametros={
+            "nombre": "Ana",
+            "ruta": "/tmp/ana.txt",
+            "activo": True,
+            "sobra": "se ignora",
+        },
     )
-    assert len(resultados) == 1, f"se esperaba un resultado, llego {len(resultados)}"
-    assert isinstance(resultados[0], ResultadoSql), "el resultado no es ResultadoSql"
-    assert resultados[0].filas_afectadas == 1, f"filas afectadas {resultados[0].filas_afectadas}"
-    assert resultados[0].filas == [], "un insert no deberia devolver filas"
-    log.info("OK parametros ligados y parametro sobrante ignorado")
+    assert retorno is None, f"ejecutar_sql debe devolver None, devolvio {retorno!r}"
+
+    filas = _consultar(engine, "select nombre, ruta, activo from clientes where nombre = 'Ana'")
+    assert filas == [("Ana", "/tmp/ana.txt", 1)], f"fila insertada inesperada: {filas}"
+    log.info("OK retorno None, parametros ligados y parametro sobrante ignorado")
 
 
 def _probar_backslash_intacto(engine) -> None:
@@ -67,32 +77,36 @@ def _probar_backslash_intacto(engine) -> None:
         engine,
         parametros={"nombre": "Ruta", "ruta": ruta},
     )
-    guardada = ejecutar_sql("select ruta from clientes where nombre = 'Ruta'", engine)[0].filas[0][0]
+    guardada = _consultar(engine, "select ruta from clientes where nombre = 'Ruta'")[0][0]
     assert guardada == ruta, f"la ruta se corrompio: {guardada!r} != {ruta!r}"
     log.info("OK backslash intacto: %r", guardada)
 
 
 def _probar_separador(engine) -> None:
+    antes = _contar(engine)
+
     bloque = (
         "insert into clientes (nombre) values ('uno')\n"
         f"{SEPARADOR_CONSULTAS}\n"
         "insert into clientes (nombre) values ('dos')"
     )
-    resultados = ejecutar_sql(bloque, engine)
-    assert len(resultados) == 2, f"se esperaban 2 sentencias, llegaron {len(resultados)}"
+    ejecutar_sql(bloque, engine)
+    insertadas = _contar(engine) - antes
+    assert insertadas == 2, f"se esperaban 2 inserciones, hubo {insertadas}"
 
     personalizado = (
         "insert into clientes (nombre) values ('tres')\n"
         "--MI CORTE\n"
         "insert into clientes (nombre) values ('cuatro')"
     )
-    resultados = ejecutar_sql(personalizado, engine, separador="--MI CORTE")
-    assert len(resultados) == 2, f"se esperaban 2 sentencias, llegaron {len(resultados)}"
+    ejecutar_sql(personalizado, engine, separador="--MI CORTE")
+    insertadas = _contar(engine) - antes
+    assert insertadas == 4, f"se esperaban 4 inserciones, hubo {insertadas}"
     log.info("OK separador por defecto y separador por llamada")
 
 
 def _probar_atomicidad(engine) -> None:
-    antes = len(_filas(engine))
+    antes = _contar(engine)
     bloque = (
         "insert into clientes (nombre) values ('cinco')\n"
         f"{SEPARADOR_CONSULTAS}\n"
@@ -108,7 +122,7 @@ def _probar_atomicidad(engine) -> None:
     else:
         raise AssertionError("el bloque con una sentencia invalida no lanzo excepcion")
 
-    despues = len(_filas(engine))
+    despues = _contar(engine)
     assert despues == antes, f"la transaccion no se revirtio: {antes} filas antes, {despues} despues"
     log.info("OK atomicidad: %d filas antes y despues", antes)
 
@@ -116,7 +130,7 @@ def _probar_atomicidad(engine) -> None:
 def _probar_conexion_invalida() -> None:
     engine = create_engine("sqlite:///Z:/ruta/que/no/existe/base.db")
     try:
-        ejecutar_sql("select 1", engine)
+        ejecutar_sql("delete from clientes", engine)
     except ExcepcionConexion as exc:
         assert exc.codigo_salida == 2, f"codigo de salida {exc.codigo_salida}"
         log.info("OK conexion invalida traducida a codigo 2")
@@ -152,7 +166,7 @@ def _probar_sin_print_y_con_log(engine) -> None:
     logger_ejecucion.setLevel(logging.DEBUG)
     try:
         with redirect_stdout(salida):
-            ejecutar_sql(
+            retorno = ejecutar_sql(
                 "-- Encabezado auditable\ninsert into clientes (nombre) values ('siete')",
                 engine,
             )
@@ -160,10 +174,14 @@ def _probar_sin_print_y_con_log(engine) -> None:
         logger_ejecucion.removeHandler(colector)
 
     assert salida.getvalue() == "", f"la libreria imprimio en stdout: {salida.getvalue()!r}"
+    assert retorno is None, f"ejecutar_sql debe devolver None, devolvio {retorno!r}"
     assert any("Encabezado auditable" in mensaje for mensaje in capturado), (
         f"el encabezado no se registro en el log: {capturado}"
     )
-    log.info("OK sin print y con el encabezado registrado en el log")
+    assert any("filas afectadas" in mensaje for mensaje in capturado), (
+        f"las filas afectadas no se registraron en el log: {capturado}"
+    )
+    log.info("OK retorno None, sin print, con encabezado y filas afectadas en el log")
 
 
 def main() -> None:
@@ -171,7 +189,7 @@ def main() -> None:
     log.info("Test de ejecutar_sql")
 
     engine = _crear_engine()
-    _probar_parametros_ligados(engine)
+    _probar_retorno_y_parametros(engine)
     _probar_backslash_intacto(engine)
     _probar_separador(engine)
     _probar_atomicidad(engine)

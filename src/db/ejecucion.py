@@ -1,15 +1,18 @@
-"""Ejecucion de una o varias sentencias SQL sobre un engine de SQLAlchemy.
+"""Ejecucion de bloques de sentencias SQL (DDL y DML) sobre un engine de SQLAlchemy.
 
-Los valores viajan como parametros ligados (``:nombre``): nunca se interpolan
-en el texto del SQL, asi que una ruta con backslash o una comilla llegan
-intactas y no hay forma de inyectar SQL por el valor de un parametro.
+El bloque se ejecuta en una sola transaccion y no se devuelven filas: el detalle
+de cada sentencia queda en el log. Para traer datos se usa pandas con el mismo
+engine.
+
+Los valores viajan como parametros ligados (``:nombre``): nunca se interpolan en
+el texto del SQL, asi que una ruta con backslash o una comilla llegan intactas y
+no hay forma de inyectar SQL por el valor de un parametro.
 """
 
 from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field
 
 from sqlalchemy import Engine, text
 from sqlalchemy.exc import InterfaceError, SQLAlchemyError
@@ -24,29 +27,16 @@ SEPARADOR_CONSULTAS = "--SEPARADOR DE CONSULTAS"
 _PATRON_MARCADOR = re.compile(r"(?<!:):([A-Za-z_][A-Za-z0-9_]*)")
 
 
-@dataclass(frozen=True)
-class ResultadoSql:
-    """Resultado de una sentencia ejecutada.
-
-    Attributes:
-        sentencia: el texto de la sentencia que se ejecuto.
-        filas: filas devueltas, como tuplas; vacio si no devuelve filas.
-        filas_afectadas: filas insertadas/actualizadas/borradas, o ``None`` si
-            la sentencia devuelve filas o el driver no informa el dato.
-    """
-
-    sentencia: str
-    filas: list[tuple] = field(default_factory=list)
-    filas_afectadas: int | None = None
-
-
 def ejecutar_sql(
     sql: str,
     engine: Engine,
     parametros: dict | None = None,
     separador: str = SEPARADOR_CONSULTAS,
-) -> list[ResultadoSql]:
-    """Ejecuta una o varias sentencias SQL en una sola transaccion.
+) -> None:
+    """Ejecuta uno o varios bloques de sentencias DDL/DML en una sola transaccion.
+
+    No devuelve filas: el encabezado ``--`` de cada sentencia y las filas
+    afectadas quedan en el log.
 
     Args:
         sql: una sentencia o varias separadas por ``separador``.
@@ -56,40 +46,38 @@ def ejecutar_sql(
         separador: texto que separa las sentencias (por defecto
             ``SEPARADOR_CONSULTAS``).
 
-    Returns:
-        Un ``ResultadoSql`` por sentencia, en el orden en que se ejecutaron.
-
     Raises:
-        ValueError: si ``sql`` o ``separador`` estan vacios.
-        ExcepcionConexion: no se pudo conectar o la conexion se perdio
-            (codigo de salida 2).
-        ExcepcionEjecucionSql: la base rechazo una sentencia (codigo 3); la
-            transaccion completa queda revertida, sin sentencias a medias.
+        ValueError: si ``sql`` o ``separador`` estan vacios, o si ``engine`` no
+            es un ``Engine`` de SQLAlchemy.
+        ExcepcionConexion: no se pudo conectar o la conexion se perdio (codigo
+            de salida 2).
+        ExcepcionEjecucionSql: la base rechazo una sentencia (codigo de salida
+            3); la transaccion completa queda revertida, sin sentencias a medias.
     """
-    sentencias = _dividir(sql, separador)
+    sentencias = _dividir_en_sentencias(sql, separador)
     if not isinstance(engine, Engine):
         raise ValueError("El parametro 'engine' debe ser un Engine de SQLAlchemy")
 
-    log.debug("Ejecutando %d sentencia(s) sobre %s", len(sentencias), _describir(engine))
-    resultados: list[ResultadoSql] = []
+    log.debug(
+        "Ejecutando %d sentencia(s) sobre %s", len(sentencias), _describir_engine(engine)
+    )
 
-    # La conexion se abre aparte: lo que falle aqui es conexion (2); lo que
-    # falle dentro de la transaccion es SQL (3). Mezclar ambos casos obliga al
+    # La conexion se abre aparte: lo que falle aqui es conexion (2); lo que falle
+    # dentro de la transaccion es SQL (3). Mezclar ambos casos obliga al
     # consumidor a adivinar por el tipo de excepcion del driver.
     # OSError cubre los fallos de red/DNS que el driver lanza antes de que
     # SQLAlchemy los envuelva (oracledb thin: socket.gaierror).
     try:
         conexion = engine.connect()
     except (SQLAlchemyError, OSError) as exc:
-        raise ExcepcionConexion(
-            f"No se pudo conectar con la base de datos: {exc}"
-        ) from exc
+        raise ExcepcionConexion(f"No se pudo conectar con la base de datos: {exc}") from exc
 
+    total_filas = 0
     try:
         with conexion.begin():
             for numero, sentencia in enumerate(sentencias, 1):
-                _registrar_encabezado(sentencia)
-                valores = _parametros_de(sentencia, parametros)
+                _registrar_comentario_en_log(sentencia)
+                valores = _filtrar_parametros_usados(sentencia, parametros)
                 try:
                     resultado = conexion.execute(text(sentencia), valores)
                 except (SQLAlchemyError, OSError) as exc:
@@ -103,23 +91,27 @@ def ejecutar_sql(
                         f"Fallo la sentencia {numero} de {len(sentencias)}: {exc}"
                     ) from exc
 
-                filas = [tuple(fila) for fila in resultado.fetchall()] if resultado.returns_rows else []
-                resultados.append(
-                    ResultadoSql(
-                        sentencia=sentencia,
-                        filas=filas,
-                        filas_afectadas=None if resultado.returns_rows else resultado.rowcount,
-                    )
+                # rowcount queda en None o -1 cuando el driver no informa el dato
+                # (DDL, o una sentencia que devuelve filas).
+                afectadas = max(resultado.rowcount or 0, 0)
+                total_filas += afectadas
+                log.debug(
+                    "Sentencia %d de %d ejecutada (%d filas afectadas)",
+                    numero,
+                    len(sentencias),
+                    afectadas,
                 )
-                log.debug("Sentencia %d de %d ejecutada", numero, len(sentencias))
     finally:
         conexion.close()
 
-    log.info("Bloque de %d sentencia(s) confirmado", len(resultados))
-    return resultados
+    log.info(
+        "Bloque de %d sentencia(s) confirmado: %d filas afectadas",
+        len(sentencias),
+        total_filas,
+    )
 
 
-def _dividir(sql: str, separador: str) -> list[str]:
+def _dividir_en_sentencias(sql: str, separador: str) -> list[str]:
     """Parte el SQL por el separador y descarta lo que quede vacio."""
     if not isinstance(sql, str) or not sql.strip():
         raise ValueError("El SQL a ejecutar no puede estar vacio")
@@ -133,7 +125,7 @@ def _dividir(sql: str, separador: str) -> list[str]:
     return sentencias
 
 
-def _parametros_de(sentencia: str, parametros: dict | None) -> dict:
+def _filtrar_parametros_usados(sentencia: str, parametros: dict | None) -> dict:
     """Deja solo los parametros que la sentencia realmente usa."""
     if not parametros:
         return {}
@@ -141,13 +133,13 @@ def _parametros_de(sentencia: str, parametros: dict | None) -> dict:
     return {nombre: valor for nombre, valor in parametros.items() if nombre in usados}
 
 
-def _registrar_encabezado(sentencia: str) -> None:
-    """Registra la linea de comentario con la que arranca la sentencia."""
+def _registrar_comentario_en_log(sentencia: str) -> None:
+    """Registra en el log la linea de comentario con la que arranca la sentencia."""
     primera_linea = sentencia.strip().splitlines()[0].strip()
     if primera_linea.startswith("--"):
         log.info(primera_linea)
 
 
-def _describir(engine: Engine) -> str:
+def _describir_engine(engine: Engine) -> str:
     """Describe el engine sin exponer la clave."""
     return engine.url.render_as_string(hide_password=True)

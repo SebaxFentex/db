@@ -20,7 +20,7 @@ src/db/
   _log.py            configurar_log() + purgar_logs() — solo para entrypoints
   _excepciones.py    ExcepcionDb (1), ExcepcionConexion (2), ExcepcionEjecucionSql (3)
   conexion.py        crear_engine_oracle / crear_engine_sqlserver / inicializar_cliente_oracle
-  ejecucion.py       SEPARADOR_CONSULTAS, ResultadoSql, ejecutar_sql
+  ejecucion.py       SEPARADOR_CONSULTAS, ejecutar_sql
 ejecutables/
   build.bat          uv build y lista dist/
   abrir_vscode.bat   abre la raiz de la libreria
@@ -44,7 +44,8 @@ logs/                    logs de desarrollo (ignorado por git)
   hablan TDS 7.0 se conectan pasando `query={"tds_version": "7.0"}` desde el
   proyecto consumidor**: la libreria no decide eso por el nombre del prefijo.
 - `ejecutar_sql(sql, engine, parametros=None, separador=SEPARADOR_CONSULTAS)`
-  devuelve `list[ResultadoSql]`. Abre la conexion fuera de la transaccion para
+  ejecuta bloques DDL/DML y **no devuelve filas**: el encabezado de cada sentencia
+  y las filas afectadas van al log. Abre la conexion fuera de la transaccion para
   poder distinguir el error de conexion (2) del error de SQL (3).
 - `inicializar_cliente_oracle(ruta_cliente)` es el unico punto que toca estado
   del proceso (modo thick) y solo se llama si el consumidor lo pide. La

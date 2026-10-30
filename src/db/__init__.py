@@ -14,7 +14,7 @@ from .conexion import (
     crear_engine_sqlserver,
     inicializar_cliente_oracle,
 )
-from .ejecucion import SEPARADOR_CONSULTAS, ResultadoSql, ejecutar_sql
+from .ejecucion import SEPARADOR_CONSULTAS, ejecutar_sql
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
@@ -23,7 +23,6 @@ __all__ = [
     "ExcepcionConexion",
     "ExcepcionDb",
     "ExcepcionEjecucionSql",
-    "ResultadoSql",
     "crear_engine_oracle",
     "crear_engine_sqlserver",
     "ejecutar_sql",

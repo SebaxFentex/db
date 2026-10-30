@@ -16,8 +16,8 @@ ejecutar_sql("update tabla set estado = 1 where periodo = :periodo", engine, par
 
 - Construye engines de SQLAlchemy para Oracle (`oracle+oracledb`) y SQL Server
   (`mssql+pymssql`) a partir de parametros explicitos.
-- Ejecuta una o varias sentencias en **una sola transaccion**: si una falla, no
-  queda ninguna aplicada.
+- Ejecuta una o varias sentencias DDL/DML en **una sola transaccion**: si una
+  falla, no queda ninguna aplicada. No devuelve filas: el detalle queda en el log.
 - Permite separar sentencias con un separador propio (`SEPARADOR_CONSULTAS` por
   defecto), asi un `.sql` con varias sentencias se ejecuta de una vez.
 - Enlaza los valores como parametros ligados (`:nombre`): el valor nunca se
@@ -96,9 +96,7 @@ delete from resumen where periodo = :periodo
 -- Reinserta
 insert into resumen (periodo, total) select :periodo, count(*) from ventas where periodo = :periodo
 """
-resultados = ejecutar_sql(sql, engine, parametros={"periodo": "202609"})
-for resultado in resultados:
-    print(resultado.filas_afectadas)
+ejecutar_sql(sql, engine, parametros={"periodo": "202609"})
 ```
 
 Base SQL Server antigua que solo habla TDS 7.0 (el valor lo decide el proyecto,
@@ -134,27 +132,20 @@ idempotente: repetir con la misma ruta no hace nada y con otra ruta falla.
 **Lanza** `TypeError` si la ruta no es texto, `ValueError` si llega vacia y
 `ExcepcionConexion` (codigo 2) si no contiene un cliente utilizable.
 
-### `ejecutar_sql(sql, engine, parametros=None, separador=SEPARADOR_CONSULTAS) -> list[ResultadoSql]`
+### `ejecutar_sql(sql, engine, parametros=None, separador=SEPARADOR_CONSULTAS) -> None`
 
-Ejecuta el bloque en una transaccion y devuelve un `ResultadoSql` por sentencia,
-en orden.
+Ejecuta el bloque en una transaccion. **No devuelve filas**: el encabezado `--`
+de cada sentencia y las filas afectadas quedan en el log.
 
 - `parametros`: dict para los marcadores `:nombre`. Un parametro que no aparece
   en la sentencia se ignora; si falta uno que la sentencia usa, la base responde
   con error y se traduce a `ExcepcionEjecucionSql`.
 - `separador`: texto que corta el bloque. Cambiarlo solo afecta a esa llamada
   (no hay estado global).
-- **Lanza** `ValueError` si el SQL o el separador estan vacios, `ExcepcionConexion`
-  (codigo 2) si no se pudo conectar, `ExcepcionEjecucionSql` (codigo 3) si la base
-  rechazo una sentencia.
-
-### `ResultadoSql`
-
-| Campo | Contenido |
-|---|---|
-| `sentencia` | el texto ejecutado |
-| `filas` | filas devueltas como tuplas; vacio si la sentencia no devuelve filas |
-| `filas_afectadas` | filas insertadas/actualizadas/borradas, o `None` si devuelve filas |
+- **Lanza** `ValueError` si el SQL o el separador estan vacios o si `engine` no es
+  un `Engine` de SQLAlchemy, `ExcepcionConexion` (codigo 2) si no se pudo conectar,
+  `ExcepcionEjecucionSql` (codigo 3) si la base rechazo una sentencia. La
+  transaccion completa queda revertida, sin sentencias a medias.
 
 ### `SEPARADOR_CONSULTAS`
 
@@ -201,7 +192,7 @@ src/db/
   _log.py            configurar_log() y purgar_logs() para los tests
   _excepciones.py    ExcepcionDb, ExcepcionConexion, ExcepcionEjecucionSql
   conexion.py        crear_engine_oracle / crear_engine_sqlserver / inicializar_cliente_oracle
-  ejecucion.py       SEPARADOR_CONSULTAS, ResultadoSql, ejecutar_sql
+  ejecucion.py       SEPARADOR_CONSULTAS, ejecutar_sql
 ejecutables/         build.bat, abrir_vscode.bat y tests/ (un .bat por test)
 tests/               los tres tests; el unico lugar del ecosistema con tests
 logs/                logs de desarrollo del test (ignorado por git)
