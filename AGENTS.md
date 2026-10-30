@@ -151,3 +151,10 @@ logs/                    logs de desarrollo (ignorado por git)
   > INFO, purga por nombre y devuelve el `Logger`). Dependencias al dia:
   `oracledb` 3.4.1 -> 26.1.0, `pymssql` 2.3.10 -> 2.4.6, `sqlalchemy` 2.0.45 ->
   2.1.6, `ipykernel` 7.1.0 -> 7.4.0. Sin cambios de API.
+- **v0.2.2 (2026-10-28)**: renombre de helpers internos para que el nombre diga
+  lo que hacen. En `conexion.py`, `_exigir(valor, nombre)` pasa a
+  `_texto_obligatorio(valor, nombre)`. En `tests/test_conexion.py`,
+  `_exigir(nombre)` pasa a `_leer_variable_obligatoria(nombre)` y
+  `_opcional(nombre)` a `_leer_variable_opcional(nombre)`: el mismo nombre
+  cubria dos contratos distintos (validar un valor vs leer una variable de
+  entorno). Sin cambios de API ni de comportamiento.

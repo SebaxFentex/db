@@ -1,6 +1,6 @@
 [project]
 name = "db"
-version = "0.2.1"
+version = "0.2.2"
 description = "Utilidades para crear engines de SQLAlchemy y ejecutar SQL en Oracle y SQL Server"
 readme = "README.md"
 authors = [

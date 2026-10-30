@@ -27,7 +27,7 @@ from db._log import configurar_log
 log = logging.getLogger("db.tests")
 
 
-def _exigir(nombre: str) -> str:
+def _leer_variable_obligatoria(nombre: str) -> str:
     """Devuelve la variable obligatoria o corta con mensaje (sin defaults inventados)."""
     valor = (os.environ.get(nombre) or "").strip()
     if not valor:
@@ -38,18 +38,18 @@ def _exigir(nombre: str) -> str:
     return valor
 
 
-def _opcional(nombre: str) -> str | None:
+def _leer_variable_opcional(nombre: str) -> str | None:
     valor = (os.environ.get(nombre) or "").strip()
     return valor or None
 
 
 def _probar_oracle() -> None:
-    usuario = _exigir("ORACLE_USUARIO")
-    clave = _exigir("ORACLE_CLAVE")
-    host = _exigir("ORACLE_HOST")
-    servicio = _exigir("ORACLE_SERVICIO")
-    puerto = _opcional("ORACLE_PUERTO")
-    ruta_cliente = _opcional("ORACLE_RUTA_CLIENTE")
+    usuario = _leer_variable_obligatoria("ORACLE_USUARIO")
+    clave = _leer_variable_obligatoria("ORACLE_CLAVE")
+    host = _leer_variable_obligatoria("ORACLE_HOST")
+    servicio = _leer_variable_obligatoria("ORACLE_SERVICIO")
+    puerto = _leer_variable_opcional("ORACLE_PUERTO")
+    ruta_cliente = _leer_variable_opcional("ORACLE_RUTA_CLIENTE")
 
     if ruta_cliente:
         inicializar_cliente_oracle(ruta_cliente)
@@ -65,12 +65,12 @@ def _probar_oracle() -> None:
 
 
 def _probar_sqlserver() -> None:
-    usuario = _exigir("SQLSERVER_USUARIO")
-    clave = _exigir("SQLSERVER_CLAVE")
-    host = _exigir("SQLSERVER_HOST")
-    base_datos = _exigir("SQLSERVER_BD")
-    puerto = _opcional("SQLSERVER_PUERTO")
-    tds = _opcional("SQLSERVER_TDS")
+    usuario = _leer_variable_obligatoria("SQLSERVER_USUARIO")
+    clave = _leer_variable_obligatoria("SQLSERVER_CLAVE")
+    host = _leer_variable_obligatoria("SQLSERVER_HOST")
+    base_datos = _leer_variable_obligatoria("SQLSERVER_BD")
+    puerto = _leer_variable_opcional("SQLSERVER_PUERTO")
+    tds = _leer_variable_opcional("SQLSERVER_TDS")
 
     engine = crear_engine_sqlserver(
         usuario=usuario,

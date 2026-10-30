@@ -46,10 +46,10 @@ def crear_engine_oracle(
     Raises:
         ValueError: si falta un parametro obligatorio o el puerto no es valido.
     """
-    usuario = _exigir(usuario, "usuario")
-    clave = _exigir(clave, "clave")
-    host = _exigir(host, "host")
-    servicio = _exigir(servicio, "servicio")
+    usuario = _texto_obligatorio(usuario, "usuario")
+    clave = _texto_obligatorio(clave, "clave")
+    host = _texto_obligatorio(host, "host")
+    servicio = _texto_obligatorio(servicio, "servicio")
     if not isinstance(puerto, int) or puerto <= 0 or puerto > 65535:
         raise ValueError(f"El puerto de Oracle no es valido: {puerto!r}")
 
@@ -95,10 +95,10 @@ def crear_engine_sqlserver(
     Raises:
         ValueError: si falta un parametro obligatorio o el puerto no es valido.
     """
-    usuario = _exigir(usuario, "usuario")
-    clave = _exigir(clave, "clave")
-    host = _exigir(host, "host")
-    base_datos = _exigir(base_datos, "base_datos")
+    usuario = _texto_obligatorio(usuario, "usuario")
+    clave = _texto_obligatorio(clave, "clave")
+    host = _texto_obligatorio(host, "host")
+    base_datos = _texto_obligatorio(base_datos, "base_datos")
     if puerto is not None and (not isinstance(puerto, int) or puerto <= 0 or puerto > 65535):
         raise ValueError(f"El puerto de SQL Server no es valido: {puerto!r}")
 
@@ -131,7 +131,7 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
     """
     global _RUTA_CLIENTE_ORACLE
 
-    ruta = _exigir(ruta_cliente, "ruta_cliente")
+    ruta = _texto_obligatorio(ruta_cliente, "ruta_cliente")
     if _RUTA_CLIENTE_ORACLE == ruta:
         log.debug("Oracle Client ya inicializado en %s", ruta)
         return
@@ -147,7 +147,7 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
     log.info("Oracle Client inicializado en %s", ruta)
 
 
-def _exigir(valor: str, nombre: str) -> str:
+def _texto_obligatorio(valor: str, nombre: str) -> str:
     """Devuelve el valor sin espacios sobrantes o lanza ``ValueError``."""
     texto = valor.strip() if isinstance(valor, str) else ""
     if not texto:
