@@ -183,3 +183,13 @@ logs/                    logs de desarrollo (ignorado por git)
   `tests/test_crear_engines.py` cubre los dos caminos; ademas el test estrecha
   `engine.pool` a `QueuePool` antes de `checkedout()`, porque ese metodo no
   existe en la clase base `Pool`.
+- **v0.4.0 (2026-10-30)**: `ejecutar_sql` vuelve a no devolver filas, como el
+  `run_query` original. Se elimina la clase `ResultadoSql` y el `fetchall()`: el
+  retorno es `None` y las filas afectadas quedan en el log (INFO por bloque,
+  DEBUG por sentencia). Ruptura de contrato para quien hiciera
+  `resultados = ejecutar_sql(...)` o leyera `resultados[0].filas` /
+  `.filas_afectadas`: ahora se usa el log, o se lee con el engine y pandas.
+  Ademas se renombraron helpers internos para que el nombre diga que hacen:
+  `_dividir` -> `_dividir_en_sentencias`, `_parametros_de` ->
+  `_filtrar_parametros_usados`, `_registrar_encabezado` ->
+  `_registrar_comentario_en_log`, `_describir` -> `_describir_engine`.
