@@ -47,7 +47,7 @@ En el `pyproject.toml` de `python_<nombre>`, por Git con el tag fijo (nunca
 dependencies = ["db"]
 
 [tool.uv.sources]
-db = { git = "https://github.com/SebaxFentex/db", tag = "v0.4.0" }
+db = { git = "https://github.com/SebaxFentex/db", tag = "v1.0.0" }
 ```
 
 El repositorio es publico: no hacen falta credenciales. El `tag` fija la version
