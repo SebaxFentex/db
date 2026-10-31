@@ -1,12 +1,12 @@
 """Ejecucion de bloques de sentencias SQL (DDL y DML) sobre un engine de SQLAlchemy.
 
-El bloque se ejecuta en una sola transaccion y no se devuelven filas: el detalle
-de cada sentencia queda en el log. Para traer datos se usa pandas con el mismo
+El bloque se ejecuta en una sola transaccion y devuelve ``None``: el detalle de
+cada sentencia queda en el log. Para traer datos se usa pandas con el mismo
 engine.
 
-Los valores viajan como parametros ligados (``:nombre``): nunca se interpolan en
-el texto del SQL, asi que una ruta con backslash o una comilla llegan intactas y
-no hay forma de inyectar SQL por el valor de un parametro.
+Los valores viajan como parametros ligados (``:nombre``), asi que una ruta con
+backslash o una comilla llegan intactas y el valor queda aislado del texto del
+SQL.
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def ejecutar_sql(
 ) -> None:
     """Ejecuta uno o varios bloques de sentencias DDL/DML en una sola transaccion.
 
-    No devuelve filas: el encabezado ``--`` de cada sentencia y las filas
+    Devuelve ``None``: el encabezado ``--`` de cada sentencia y las filas
     afectadas quedan en el log.
 
     Args:

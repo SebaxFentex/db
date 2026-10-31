@@ -1,7 +1,7 @@
 """Configuracion de log para los entrypoints (tests, ejecutables).
 
-La libreria solo emite logs (logging.getLogger(__name__)); este modulo
-solo actua cuando alguien lo llama. Nunca se ejecuta al importar.
+La libreria emite logs via logging.getLogger(__name__); este modulo configura el
+logger "db" cuando el entrypoint lo llama.
 """
 
 import logging

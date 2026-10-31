@@ -1,9 +1,7 @@
 """Construccion de engines de SQLAlchemy a partir de parametros explicitos.
 
-La libreria no lee variables de entorno ni archivos ``.env``: el proyecto
-consumidor decide de donde salen las credenciales y las pasa como parametros.
-Construir un engine no abre la conexion; el error de conexion aparece en el
-primer uso (``ejecutar_sql`` lo traduce a ``ExcepcionConexion``).
+Las credenciales y opciones llegan como parametros. La conexion se abre en el
+primer uso: ``ejecutar_sql`` traduce el fallo a ``ExcepcionConexion``.
 """
 
 from __future__ import annotations
@@ -84,9 +82,8 @@ def crear_engine_sqlserver(
         host: nombre o IP del servidor.
         base_datos: base a la que se conecta.
         puerto: puerto del servidor; ``None`` usa el default del driver.
-        query: opciones extra para la URL. Las bases antiguas que solo hablan
-            TDS 7.0 se conectan pasando ``{"tds_version": "7.0"}``; el valor lo
-            decide el proyecto consumidor, no la libreria.
+        query: opciones extra para la URL, por ejemplo
+            ``{"tds_version": "7.0"}`` para servidores que solo hablan TDS 7.0.
 
     Returns:
         Engine de SQLAlchemy configurado con verificacion de conexion previa.
@@ -118,8 +115,7 @@ def crear_engine_sqlserver(
 def inicializar_cliente_oracle(ruta_cliente: str) -> None:
     """Inicializa Oracle Client en modo thick.
 
-    Debe llamarse antes de abrir cualquier conexion. Es idempotente: repetir con
-    la misma ruta no hace nada y con otra ruta falla.
+    Debe llamarse antes de abrir cualquier conexion.
 
     Args:
         ruta_cliente: carpeta donde esta el Oracle Client de 64 bits.
@@ -131,9 +127,10 @@ def inicializar_cliente_oracle(ruta_cliente: str) -> None:
             proceso ya abrio una conexion en modo thin.
 
     Notes:
-        El modo thin es el default y no requiere esta llamada; se usa cuando la
+        Sin esta llamada ``oracledb`` trabaja en modo thin; se usa cuando la
         conexion depende de un Oracle Client instalado (TNS, NLS). La
-        idempotencia y el rechazo del cambio de modo los aplica ``oracledb``.
+        idempotencia y el rechazo del cambio de modo los aplica ``oracledb``:
+        repetir con la misma ruta no tiene efecto y con otra ruta falla.
     """
     ruta = _verificar_parametro_obligatorio(ruta_cliente, "ruta_cliente")
 

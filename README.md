@@ -17,11 +17,11 @@ ejecutar_sql("update tabla set estado = 1 where periodo = :periodo", engine, par
 - Construye engines de SQLAlchemy para Oracle (`oracle+oracledb`) y SQL Server
   (`mssql+pymssql`) a partir de parametros explicitos.
 - Ejecuta una o varias sentencias DDL/DML en **una sola transaccion**: si una
-  falla, no queda ninguna aplicada. No devuelve filas: el detalle queda en el log.
+  falla, no queda ninguna aplicada. Devuelve `None`: el detalle queda en el log.
 - Permite separar sentencias con un separador propio (`SEPARADOR_CONSULTAS` por
   defecto), asi un `.sql` con varias sentencias se ejecuta de una vez.
-- Enlaza los valores como parametros ligados (`:nombre`): el valor nunca se
-  interpola en el texto del SQL.
+- Enlaza los valores como parametros ligados (`:nombre`): el valor queda
+  aislado del texto del SQL.
 - Traduce los errores de la base a dos excepciones propias con codigo de salida.
 
 **No hace**
@@ -39,16 +39,19 @@ ejecutar_sql("update tabla set estado = 1 where periodo = :periodo", engine, par
 
 ## 2. Como declararla en el proyecto consumidor
 
-En el `pyproject.toml` de `python_<nombre>` (dependencia editable, nunca
+En el `pyproject.toml` de `python_<nombre>`, por Git con el tag fijo (nunca
 `sys.path` ni copiar carpetas):
 
 ```toml
+[project]
+dependencies = ["db"]
+
 [tool.uv.sources]
-db = { path = "../../../../Proyectos/1. PROPIOS/1.5 - Librerias/db", editable = true }
+db = { git = "https://github.com/SebaxFentex/db", tag = "v0.4.0" }
 ```
 
-Los cuatro `../` son los que separan `Proyectos/<categoria>/<proyecto>/python_<nombre>`
-de la raiz `Tigo`. Verificar la ruta antes de escribirla y despues confirmar:
+El repositorio es publico: no hacen falta credenciales. El `tag` fija la version
+del codigo que se instala; para tomar otra hay que cambiarlo y resolver de nuevo.
 
 ```bash
 uv lock && uv sync
@@ -99,8 +102,7 @@ insert into resumen (periodo, total) select :periodo, count(*) from ventas where
 ejecutar_sql(sql, engine, parametros={"periodo": "202609"})
 ```
 
-Base SQL Server antigua que solo habla TDS 7.0 (el valor lo decide el proyecto,
-no la libreria):
+Base SQL Server antigua que solo habla TDS 7.0:
 
 ```python
 engine = crear_engine_sqlserver(
@@ -115,7 +117,7 @@ engine = crear_engine_sqlserver(
 
 Construye el engine de Oracle. `query` agrega opciones a la URL.
 **Lanza** `TypeError` si un parametro no es texto y `ValueError` si llega vacio o
-el puerto no es valido. Construir el engine **no** abre conexion.
+el puerto no es valido. La conexion se abre en el primer uso.
 
 ### `crear_engine_sqlserver(usuario, clave, host, base_datos, puerto=None, query=None) -> Engine`
 
@@ -125,10 +127,11 @@ antiguas. **Lanza** `TypeError` o `ValueError` con las mismas reglas que Oracle.
 
 ### `inicializar_cliente_oracle(ruta_cliente) -> None`
 
-Inicializa Oracle Client (modo thick). No hace falta en modo thin, que es el
-default. **Debe llamarse antes de abrir cualquier conexion**: si el proceso ya
-creo una conexion en modo thin, oracledb rechaza el cambio y queda en thin. Es
-idempotente: repetir con la misma ruta no hace nada y con otra ruta falla.
+Inicializa Oracle Client (modo thick). Sin esta llamada oracledb trabaja en modo
+thin, que es el default. **Debe llamarse antes de abrir cualquier conexion**: si
+el proceso ya creo una conexion en modo thin, oracledb rechaza el cambio y queda
+en thin. Es idempotente: repetir con la misma ruta no tiene efecto y con otra
+ruta falla.
 **Lanza** `TypeError` si la ruta no es texto, `ValueError` si llega vacia y
 `ExcepcionConexion` (codigo 2) si no contiene un cliente utilizable.
 

@@ -10,7 +10,8 @@ Tabla de codigos de la libreria:
     2  no se pudo conectar con la base de datos
     3  la base rechazo una sentencia SQL
 
-Los datos de entrada malformados se dejan como ``ValueError`` nativo.
+Los datos de entrada malformados llegan como ``TypeError`` (tipo incorrecto) o
+``ValueError`` (texto vacio), sin envolverse.
 """
 
 

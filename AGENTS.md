@@ -7,9 +7,10 @@ Guia para agentes (y humanos) que trabajan en este repo. Cada regla con su
 
 Libreria interna PAQUETE (`uv_build`, layout `src/`) que construye engines de
 SQLAlchemy para Oracle y SQL Server y ejecuta bloques de SQL en una sola
-transaccion. Se consume en modo editable desde los `pyproject.toml` de los
-proyectos de `D:\Tigo\Proyectos`; no se opera con el Programador de tareas y no
-pide credenciales a ningun humano.
+transaccion. Se publica en `https://github.com/SebaxFentex/db` y los proyectos de
+`D:\Tigo\Proyectos` la declaran por Git con un tag fijo en su
+`[tool.uv.sources]`; no se opera con el Programador de tareas y no pide
+credenciales a ningun humano.
 
 Stack: Python 3.14, `uv`, SQLAlchemy 2.1, `oracledb` 26 (thin por defecto),
 `pymssql` 2.4.
@@ -42,9 +43,9 @@ logs/                    logs de desarrollo (ignorado por git)
   `pool_recycle=1800`. No conectan.
 - `query` es la valvula para opciones del driver. **Las bases antiguas que solo
   hablan TDS 7.0 se conectan pasando `query={"tds_version": "7.0"}` desde el
-  proyecto consumidor**: la libreria no decide eso por el nombre del prefijo.
+  proyecto consumidor**.
 - `ejecutar_sql(sql, engine, parametros=None, separador=SEPARADOR_CONSULTAS)`
-  ejecuta bloques DDL/DML y **no devuelve filas**: el encabezado de cada sentencia
+  ejecuta bloques DDL/DML y **devuelve `None`**: el encabezado de cada sentencia
   y las filas afectadas van al log. Abre la conexion fuera de la transaccion para
   poder distinguir el error de conexion (2) del error de SQL (3).
 - `inicializar_cliente_oracle(ruta_cliente)` es el unico punto que toca estado
@@ -101,7 +102,10 @@ logs/                    logs de desarrollo (ignorado por git)
     misma; lo que hace la dependencia (`oracledb` en thin por defecto, `pymssql`
     y su version de TDS) va en `Notes` o en el README. `Args`, `Returns` y
     `Raises` si pueden explicar el porque de un parametro, un error o un valor
-    devuelto.
+    devuelto. La descripcion no compara con otras librerias ni con versiones
+    anteriores: el contrato se enuncia en positivo ("devuelve `None`", no "no
+    devuelve filas"). Las fronteras de alcance (que no lee `.env`, que no migra,
+    que no manda correo) van una sola vez, en la seccion 1 del README.
 
 ## 4. Logging, codigos de salida y `.env`
 
@@ -137,59 +141,17 @@ logs/                    logs de desarrollo (ignorado por git)
 6. Los `.bat` se prueban ejecutandolos: `cmd.exe /c ejecutables\build.bat` debe
    llegar al `pause` final listando `dist\`.
 
-## 6. Historial de rupturas
+## 6. Historial
 
-- **v0.2.0 (2026-10-28)**: la libreria deja de leer entorno y pasa a ser un
-  paquete `uv_build` con layout `src/`. Mapeo viejo -> nuevo:
-  `create_oracle_engine_from_env(prefix)` -> `crear_engine_oracle(usuario, clave,
-  host, servicio, puerto=1521, query=None)`; `create_sqlserver_engine_from_env(prefix)`
-  -> `crear_engine_sqlserver(usuario, clave, host, base_datos, puerto=None,
-  query=None)`; `create_sqlserver_netv_engine_from_env()` y
-  `create_sqlserver_amev_engine_from_env()` se eliminan (eran dos constantes de
-  negocio de Tigo dentro de la libreria: el consumidor arma su engine con sus
-  propios valores); `sqlserver_netv_engine`, `sqlserver_amev_engine` y
-  `oracle_gdwh_ext_engine` se eliminan (efectos de import que fallaban en
-  silencio); `run_query(query, engine, parameters, separador)` -> `ejecutar_sql(sql,
-  engine, parametros=None, separador=SEPARADOR_CONSULTAS)` y ahora devuelve
-  `list[ResultadoSql]`; `set_separador()`/`get_separador()`/`db.SEPARADOR` ->
-  parametro `separador` y constante `SEPARADOR_CONSULTAS`; `db._env.*` y
-  `MissingEnvironmentVariableError` se eliminan; `DB_SEPARADOR` deja de existir.
-  El `tds_version=7.0` que la libreria aplicaba sola cuando el prefijo contenia
-  `"NETV"` pasa a ser `query={"tds_version": "7.0"}` en el consumidor. Los
-  proyectos que la consumen deben migrar: `python_portaciones`,
-  `python_tabla_calendario`, `python_simplificacion_planes` y
-  `python_reportes_interbd`.
-- **v0.2.1 (2026-10-28)**: `_log.py` se alinea con el de `sharepoint`
-  (`carpeta_logs()`, constantes `PREFIJO_LOG_PREDETERMINADO`,
-  `NIVEL_LOG_PREDETERMINADO` y `MAX_LOGS_PREDETERMINADO`, configuracion del
-  logger "db" en vez del raiz, idempotente, nivel por parametro > `DB_NIVEL_LOG`
-  > INFO, purga por nombre y devuelve el `Logger`). Dependencias al dia:
-  `oracledb` 3.4.1 -> 26.1.0, `pymssql` 2.3.10 -> 2.4.6, `sqlalchemy` 2.0.45 ->
-  2.1.6, `ipykernel` 7.1.0 -> 7.4.0. Sin cambios de API.
-- **v0.2.2 (2026-10-28)**: renombre de helpers internos para que el nombre diga
-  lo que hacen. En `conexion.py`, `_exigir(valor, nombre)` pasa a
-  `_texto_obligatorio(valor, nombre)`. En `tests/test_conexion.py`,
-  `_exigir(nombre)` pasa a `_leer_variable_obligatoria(nombre)` y
-  `_opcional(nombre)` a `_leer_variable_opcional(nombre)`: el mismo nombre
-  cubria dos contratos distintos (validar un valor vs leer una variable de
-  entorno). Sin cambios de API ni de comportamiento.
-- **v0.3.0 (2026-10-30)**: el contrato de errores separa tipo de contenido.
-  `_verificar_parametro_obligatorio` recibe `valor: object` (es un validador: no
-  puede dar por hecho que ya recibe texto) y lanza `TypeError` cuando el valor no
-  es texto (`None`, un numero) y `ValueError` cuando es texto pero llega vacio o
-  solo con espacios. Antes los dos casos salian como `ValueError`. Un consumidor
-  que atrapaba `ValueError` para el caso de la variable ausente
-  (`os.environ.get` devuelve `None`) debe atrapar tambien `TypeError`.
-  `tests/test_crear_engines.py` cubre los dos caminos; ademas el test estrecha
-  `engine.pool` a `QueuePool` antes de `checkedout()`, porque ese metodo no
-  existe en la clase base `Pool`.
-- **v0.4.0 (2026-10-30)**: `ejecutar_sql` vuelve a no devolver filas, como el
-  `run_query` original. Se elimina la clase `ResultadoSql` y el `fetchall()`: el
-  retorno es `None` y las filas afectadas quedan en el log (INFO por bloque,
-  DEBUG por sentencia). Ruptura de contrato para quien hiciera
-  `resultados = ejecutar_sql(...)` o leyera `resultados[0].filas` /
-  `.filas_afectadas`: ahora se usa el log, o se lee con el engine y pandas.
-  Ademas se renombraron helpers internos para que el nombre diga que hacen:
-  `_dividir` -> `_dividir_en_sentencias`, `_parametros_de` ->
-  `_filtrar_parametros_usados`, `_registrar_encabezado` ->
-  `_registrar_comentario_en_log`, `_describir` -> `_describir_engine`.
+- **0.2.0** — Primera version del paquete `uv_build` con layout `src/`: API por
+  parametros (`crear_engine_oracle`, `crear_engine_sqlserver`, `ejecutar_sql`),
+  sin lecturas de entorno y sin engines globales.
+- **0.2.1** — `_log.py` alineado con el de `sharepoint`; dependencias al dia.
+- **0.2.2** — Helpers internos renombrados para que el nombre diga que hacen.
+- **0.3.0** — La validacion de parametros separa `TypeError` (tipo incorrecto) de
+  `ValueError` (contenido vacio).
+- **0.4.0** — `ejecutar_sql` devuelve `None` y las filas afectadas van al log; se
+  elimina la clase `ResultadoSql`.
+- **Sin tag todavia** — Redaccion: el contrato se enuncia en positivo y las
+  fronteras de alcance quedan solo en el README. La instalacion en los
+  consumidores pasa a ser por Git con tag fijo, no editable.
